@@ -1,1 +1,0 @@
-/Users/mmaganu/fun/proc-macro-workshop-solutions/builder/target/tests/trybuild/x86_64-apple-darwin/debug/derive_builder-tests: /Users/mmaganu/fun/proc-macro-workshop-solutions/builder/src/lib.rs /Users/mmaganu/fun/proc-macro-workshop-solutions/builder/target/tests/trybuild/derive_builder/main.rs
