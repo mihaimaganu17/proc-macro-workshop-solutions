@@ -30,16 +30,27 @@ pub fn derive(input: TokenStream) -> TokenStream {
             // First we assume that the generic type is present in the structure and it is not
             // wrapped around the `PhantomData` type.
             let mut generic_in_struct = false;
+            // We also assume that there is no PhantomData present containing the generic in the
+            // struct.
+            let mut ph_data_only = false;
+
+            let gen_ty = syn::parse_quote!(#generic_ty);
 
             for field in named_fields.iter() {
-                if field.ty == syn::parse_quote!(#generic_ty) {
+                if field.ty == gen_ty {
                     generic_in_struct = true;
+                }
+            }
+
+            for field in named_fields.iter() {
+                if field.ty == syn::parse_quote!(PhantomData<#gen_ty>) && !generic_in_struct{
+                    ph_data_only = true;
                 }
             }
 
             // If we could not find the generic inside the struct by itself, we do not add the
             // bound and move on to the next structure.
-            if !generic_in_struct {
+            if ph_data_only {
                 continue;
             }
             // Add the required `Debug` bound to the structure
