@@ -22,19 +22,29 @@ pub fn derive(input: TokenStream) -> TokenStream {
         unimplemented!();
     };
 
+    println!("{:#?}", named_fields);
+
+    let mut generic_idents: Vec<syn::Ident> = vec![];
+
     for generic in syn_tree.generics.params.iter_mut() {
         if let syn::GenericParam::Type(ref mut generic_ty) = generic {
             // For this generic, we have to check if there are just `PhantomData` fields in the
             // structure that contains it. In this case, we avoid to add the bound generic.
 
-            // First we assume that the generic type is present in the structure and it is not
+            // First we assume that the generic type is not present in the structure and it is not
             // wrapped around the `PhantomData` type.
             let mut generic_in_struct = false;
             // We also assume that there is no PhantomData present containing the generic in the
             // struct.
             let mut ph_data_only = false;
 
-            let gen_ty = syn::parse_quote!(#generic_ty);
+            // Isolate the ident
+            let generic_ident = &generic_ty.ident;
+
+            generic_idents.push(generic_ident.clone());
+
+            let gen_ty: syn::Type = syn::parse_quote!(#generic_ident);
+
 
             for field in named_fields.iter() {
                 if field.ty == gen_ty {
@@ -50,11 +60,39 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
             // If we could not find the generic inside the struct by itself, we do not add the
             // bound and move on to the next structure.
-            if ph_data_only {
+            if ph_data_only || !generic_in_struct {
                 continue;
             }
+
             // Add the required `Debug` bound to the structure
             generic_ty.bounds.push(syn::parse_quote!(std::fmt::Debug));
+        }
+    }
+
+    for generic_ident in generic_idents.iter() {
+        // Go trough each of the type parameters bounds
+        for field in named_fields.iter() {
+            if let syn::Type::Path(type_path) = &field.ty {
+                if type_path.path.segments[0].ident == "Vec" {
+                    if let syn::PathArguments::AngleBracketed(angl_br_args) =
+                        &type_path.path.segments[0].arguments
+                    {
+                        if let syn::GenericArgument::Type(gen_ty) = &angl_br_args.args[0] {
+                            if let syn::Type::Path(type_path_gen) = gen_ty {
+                                if type_path_gen.path.segments.len() >= 2
+                                    && type_path_gen.path.segments[0].ident.to_string() == generic_ident.to_string()
+                                {
+                                syn_tree.generics
+                                    .make_where_clause()
+                                    .predicates
+                                    .push(syn::parse_quote!(#gen_ty: std::fmt::Debug));
+                                }
+                            }
+                        }
+
+                    }
+                }
+            }
         }
     }
 
@@ -102,7 +140,8 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let debug_ident = LitStr::new(&struct_ident.to_string(), struct_ident.span());
 
     let token_stream = quote! {
-        impl #impl_generics std::fmt::Debug for #struct_ident #ty_generics #where_clause {
+        impl #impl_generics std::fmt::Debug for #struct_ident #ty_generics #where_clause
+        {
             fn fmt(
                 &self,
                 f: &mut std::fmt::Formatter<'_>,
