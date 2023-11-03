@@ -17,4 +17,7 @@ pub trait Specifier {
     const BITS: usize;
 }
 
+pub trait TotalSizeIsMultipleOfEightBits {
+}
+
 generate_btypes!();
