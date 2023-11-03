@@ -67,7 +67,13 @@ pub fn bitfield(_args: TokenStream, input: TokenStream) -> TokenStream {
     let struct_ident = item_struct.ident;
     let size_in_bits = quote! { (#size_tk_stream) / u8::BITS as usize };
 
+    let const_mod8 = quote! {
+        const mod8 = (#size_tk_stream) % u8::BITS as usize;
+    };
+
     let token_stream = quote! {
+        #const_mod8
+
         #[repr(C)]
         pub struct #struct_ident {
             data: [u8; #size_in_bits],
@@ -82,6 +88,9 @@ pub fn bitfield(_args: TokenStream, input: TokenStream) -> TokenStream {
 
             #fns_tk_stream
         }
+
+        #[cfg(mod8 = 0)]
+        fn get_ripped() {}
     };
 
     token_stream.into()
